@@ -1,0 +1,27 @@
+{
+  "name": "handling-selling-ticket",
+  "version": "1.0.0",
+  "description": "High-concurrency ticket flash-sale engineering benchmark engine.",
+  "main": "src/server.ts",
+  "scripts": {
+    "db:migrate": "tsx -e \"import {runMigrations} from './src/db/index.ts'; runMigrations().then(() => process.exit(0)).catch(err => { console.error(err); process.exit(1); });\"",
+    "start": "tsx src/server.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "fastify": "^4.26.0",
+    "pg": "^8.11.3",
+    "pino-pretty": "^13.2.0",
+    "tsx": "^4.7.1",
+    "uuid": "^11.0.0"
+  }
+}
