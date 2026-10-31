@@ -5,15 +5,24 @@
   "main": "src/server.ts",
   "scripts": {
     "db:migrate": "tsx -e \"import {runMigrations} from './src/db/index.ts'; runMigrations().then(() => process.exit(0)).catch(err => { console.error(err); process.exit(1); });\"",
-    "start": "tsx src/server.ts"
+    "dev": "tsx watch src/server.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.14.0",
+      "onFail": "download"
+    }
+  },
+  "packageManager": "pnpm@12.14.0",
   "type": "module",
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/pg": "^8.11.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.4.0"
   },
   "dependencies": {
