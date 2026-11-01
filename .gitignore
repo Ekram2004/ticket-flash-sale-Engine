@@ -1,3 +1,7 @@
+node_modules/
 .env
-/node_modules
+.env.*
+!.env.example
 virtual-users.json
+dist/
+coverage/
