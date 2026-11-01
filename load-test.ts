@@ -1,42 +1,67 @@
 import http from "node:http";
-import crypto from "node:crypto";
 import path from "node:path";
-import fs from 'node:fs';
+import fs from "node:fs";
 
 const TARGET_URL = "http://localhost:3000/api/buy";
-const TOTAL_REQUESTS = 5000; 
+const TOTAL_REQUESTS = 5000;
 const CONCURRENCY = 200;
 
+const FLASH_SALE_ID = "cf3a8e86-a459-48e3-a6b5-d09eeeef7afa";
+const TICKET_ID = "0192d1a3-2f10-7000-8000-000000000002";
+
 const datasetPath = path.resolve("./virtual-users.json");
-let virtualUsers:any = [];
+
+let virtualUsers: string[] = [];
 
 try {
   const fileContent = fs.readFileSync(datasetPath, "utf8");
   virtualUsers = JSON.parse(fileContent);
-  console.log(`Successfully loaded ${virtualUsers.length} users from dataset.`);
-} catch (error:any) {
-  console.error(`Error reading ${datasetPath}:`, error.message);
+
+  if (!Array.isArray(virtualUsers)) {
+    throw new Error("Dataset must contain an array.");
+  }
+
+  if (virtualUsers.length < TOTAL_REQUESTS) {
+    throw new Error(
+      `Expected at least ${TOTAL_REQUESTS} users, found ${virtualUsers.length}.`,
+    );
+  }
+
+  const selectedUsers = virtualUsers.slice(0, TOTAL_REQUESTS);
+  const uniqueUsers = new Set(selectedUsers);
+
+  if (uniqueUsers.size !== TOTAL_REQUESTS) {
+    throw new Error(
+      `Expected ${TOTAL_REQUESTS} unique users, found ${uniqueUsers.size}.`,
+    );
+  }
+
+  virtualUsers = selectedUsers;
+
+  console.log(`Loaded ${virtualUsers.length} unique users.`);
+} catch (error: any) {
+  console.error("Dataset error:", error.message);
   process.exit(1);
 }
 
-
-
-
 function createDynamicPayload(trackingIndex: number) {
-  const userId = virtualUsers[trackingIndex % virtualUsers.length];
-
   return JSON.stringify({
-    userId,
-    flashSaleId: "0192d1a3-2f10-7000-8000-000000000001",
-    ticketId: "0192d1a3-2f10-7000-8000-000000000002",
+    userId: virtualUsers[trackingIndex],
+    flashSaleId: FLASH_SALE_ID,
+    ticketId: TICKET_ID,
   });
 }
+
 let started = 0;
 let completed = 0;
 let successes = 0;
 let failures = 0;
+let networkErrors = 0;
 
-const agent = new http.Agent({ keepAlive: true, maxSockets: CONCURRENCY });
+const agent = new http.Agent({
+  keepAlive: true,
+  maxSockets: CONCURRENCY,
+});
 
 function sendRequest() {
   if (started >= TOTAL_REQUESTS) return;
@@ -48,14 +73,13 @@ function sendRequest() {
 
   const req = http.request(
     TARGET_URL,
-
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Content-Length": Buffer.byteLength(currentPayload),
       },
-      agent: agent,
+      agent,
     },
     (res) => {
       let responseBody = "";
@@ -74,7 +98,6 @@ function sendRequest() {
         } else {
           failures++;
 
-          // Print only the first 10 failures.
           if (failures <= 10) {
             console.log(
               `Failure ${failures}: HTTP ${res.statusCode}`,
@@ -88,9 +111,15 @@ function sendRequest() {
     },
   );
 
-  req.on("error", () => {
+  req.on("error", (error) => {
     completed++;
     failures++;
+    networkErrors++;
+
+    if (networkErrors <= 10) {
+      console.error("Network error:", error.message);
+    }
+
     next();
   });
 
@@ -102,17 +131,22 @@ function next() {
   if (completed < TOTAL_REQUESTS) {
     sendRequest();
   } else if (completed === TOTAL_REQUESTS) {
-    console.log(`\n=== STRESS TEST COMPLETE ===`);
-    console.log(`Total Requests Sent: ${completed}`);
-    console.log(`HTTP 201 Successes:  ${successes}`);
-    console.log(`HTTP Rejections:     ${failures}`);
-    console.log(`============================\n`);
+    console.log("\n=== EXPERIMENT B STRESS TEST ===");
+    console.log(`Total Requests:       ${completed}`);
+    console.log(`HTTP 201 Successes:   ${successes}`);
+    console.log(`HTTP Rejections:      ${failures - networkErrors}`);
+    console.log(`Network Errors:       ${networkErrors}`);
+    console.log(`Total Failures:       ${failures}`);
+    console.log("===============================\n");
+
+    agent.destroy();
   }
 }
 
 console.log(
-  `Launching onslaught: ${TOTAL_REQUESTS} requests at ${CONCURRENCY} concurrency...`,
+  `Launching Experiment B: ${TOTAL_REQUESTS} requests, ${CONCURRENCY} concurrency...`,
 );
+
 for (let i = 0; i < CONCURRENCY; i++) {
   sendRequest();
 }
