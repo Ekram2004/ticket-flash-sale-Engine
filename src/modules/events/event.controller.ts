@@ -19,4 +19,15 @@ export class EventController{
             message: "Event successfully created!"
         });
     }
+
+    fetchEventHandler = async (request: FastifyRequest, reply: FastifyReply) => {
+        const rawData = await this.eventService.fetch();
+
+        const detail = Array.isArray(rawData) ? rawData : [];
+        return reply.status(200).send({
+            success: true,
+            detail: detail,
+            message: "Events successfully fetched!"
+        });
+    }
 }

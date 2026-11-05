@@ -41,4 +41,20 @@ export class EventRepository{
             client.release();
         }
     }
+
+    async listEvent(
+    ): Promise<string| any>{
+        const client = await db.connect();
+        try {
+                  const result = await client.query<EventDbRow>(
+                    `SELECT id, title, location, event_date, description, created_at, updated_at FROM events ORDER BY event_date ASC`,
+            );
+            return result.rows;
+
+        } catch (error) {
+            throw new EventRepositoryError(500, "Internal server error during event fetching");
+        } finally {
+            client.release();
+        }
+    }
 }
