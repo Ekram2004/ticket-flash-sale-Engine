@@ -1,5 +1,6 @@
 import { type FastifyRequest, type FastifyReply } from "fastify";
 import jwt from "jsonwebtoken";
+import { type UserPayload } from './auth.types.js';
 
 
 export async function authenticateSession(request: FastifyRequest, reply: FastifyReply) {
