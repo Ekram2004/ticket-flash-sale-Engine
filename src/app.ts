@@ -1,10 +1,15 @@
 import Fastify from 'fastify';
-import dotenv from 'dotenv';
 import { bookTicket } from './controllers/ticketController.js';
+import { bookingRoutes } from './modules/bookings/booking.routes.js';
+import { registerUserRoutes } from './modules/auth/auth.routes.js';
+import { loginUserRoutes } from './modules/auth/auth.routes.js';
+import cookie from '@fastify/cookie';
+import secureSession from "@fastify/secure-session";
+import fastifyCookie from '@fastify/cookie';
+import { UserRepositoryError } from './modules/auth/auth.repository.js';
 
 
 
-dotenv.config();
 
 
 export function buildApp() {
@@ -17,6 +22,34 @@ export function buildApp() {
       },
       genReqId: (req) =>req.headers["x-request-id"] as string || crypto.randomUUID(),
     });
+  
+  app.register(fastifyCookie);
+
+  app.setErrorHandler((error, request, reply) => {
+    if (error instanceof UserRepositoryError) {
+      return reply.code(error.statusCode).send({
+        error: error.statusCode === 409 ? "Conflict" : "Unauthorized",
+        message: error.message
+      });
+    }
+
+    if (error instanceof Error && 'validation' in error && error.validation) {
+      return reply.code(400).send({
+        error: "Bad Request",
+        message: error.message
+      });
+    }
+    request.log.error(error);
+    return reply.code(500).send({
+      error: "Internal Server Error",
+      message: "An unexpected error occured."
+    });
+  });
+
+
+  app.register(bookingRoutes, { prefix: "/api" });
+  app.register(registerUserRoutes, { prefix: "/api/v1/auth" });
+  app.register(loginUserRoutes, {prefix:"/api/v1/auth"})
 
     app.get('/health', async () => {
         return {
@@ -43,11 +76,10 @@ export function buildApp() {
             success: false,
             message: error.message || "Booking failed",
           });
-        }
-
-        
+        }        
 
     })
+  
 
 
 

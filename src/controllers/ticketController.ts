@@ -1,4 +1,4 @@
-import { db } from "../db/index.js";
+import { db } from "../db/pool.js";
 import { v7 as uuidv7 } from "uuid";
 
 
