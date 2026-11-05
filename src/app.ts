@@ -7,6 +7,7 @@ import cookie from '@fastify/cookie';
 import secureSession from "@fastify/secure-session";
 import fastifyCookie from '@fastify/cookie';
 import { UserRepositoryError } from './modules/auth/auth.repository.js';
+import { eventRoutes } from './modules/events/event.routes.js';
 
 
 
@@ -49,7 +50,8 @@ export function buildApp() {
 
   app.register(bookingRoutes, { prefix: "/api" });
   app.register(registerUserRoutes, { prefix: "/api/v1/auth" });
-  app.register(loginUserRoutes, {prefix:"/api/v1/auth"})
+  app.register(loginUserRoutes, { prefix: "/api/v1/auth" })
+  app.register(eventRoutes, {prefix: "/api/v1/admin"})
 
     app.get('/health', async () => {
         return {
