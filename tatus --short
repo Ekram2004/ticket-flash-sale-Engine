@@ -1,0 +1,12 @@
+warning: in the working copy of 'package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pnpm-lock.yaml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pnpm-workspace.yaml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tsconfig.json', LF will be replaced by CRLF the next time Git touches it
+ .gitignore          |   3 [32m+[m[31m-[m
+ docker-compose.yml  |  18 [32m++++++[m
+ package.json        |  13 [32m++++[m[31m-[m
+ pnpm-lock.yaml      | 158 [32m++++++++++++++++++++++++++++++++++++++++++++++++++++[m
+ pnpm-workspace.yaml |   2 [32m+[m[31m-[m
+ src/app.ts          |  29 [32m++++++++++[m
+ tsconfig.json       |   5 [32m+[m[31m-[m
+ 7 files changed, 222 insertions(+), 6 deletions(-)
