@@ -51,7 +51,8 @@ export function buildApp() {
   app.register(bookingRoutes, { prefix: "/api" });
   app.register(registerUserRoutes, { prefix: "/api/v1/auth" });
   app.register(loginUserRoutes, { prefix: "/api/v1/auth" })
-  app.register(eventRoutes, {prefix: "/api/v1/admin"})
+  app.register(eventRoutes, { prefix: "/api/v1/admin" });
+  app.register(eventRoutes, {prefix:"/api/v1"})
 
     app.get('/health', async () => {
         return {

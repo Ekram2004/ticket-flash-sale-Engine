@@ -48,3 +48,34 @@ export const createEventSchema: FastifySchema = {
     500: errorResponseSchema,
   },
 };
+
+
+
+export const listEventsResponseSchema: FastifySchema = {
+  response: {
+    200: {
+      type: "object",
+      required: ["success", "detail", "message"],
+      additionalProperties: true,
+      properties: {
+        success: { type: "boolean" },
+        message: { type: "string" },
+        detail: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["id", "title", "location", "event_date"],
+            additionalProperties: true,
+            properties: {
+              id: { type: "string", format: "uuid" },
+              title: { type: "string" },
+              location: { type: "string" },
+              event_date: { type: ["string", "object"], format: "date-time" },
+              description: { type: ["string", "null"] },
+            },
+          },
+        },
+      },
+    },
+  },
+};
