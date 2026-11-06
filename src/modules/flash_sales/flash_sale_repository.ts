@@ -7,6 +7,16 @@ export class FlashSaleRepositoryError extends Error{
     }
 }
 
+export interface flashDbRow {
+  id: string;
+  event_id: string;
+  title: string;
+  start_time: Date;
+    end_time: Date;
+    status: string | null;
+    created_at: Date;
+}
+
 
 export class FlashSaleRepository{
 
@@ -44,5 +54,19 @@ export class FlashSaleRepository{
         } finally {
             client.release();
                 }
+    }
+
+    async listFlashSale(): Promise<flashDbRow[]>{
+        const client = await db.connect();
+        try {
+            const result = await client.query<flashDbRow>(
+              `SELECT id, event_id, title, start_time, end_time, status, created_at FROM flash_sales ORDER BY start_time ASC`,
+            );
+            return result.rows;
+        } catch (error) {
+            throw new FlashSaleRepositoryError(500, "Internal server error during flash-sale fetching!");
+        } finally {
+            client.release();
+        }
     }
 }
