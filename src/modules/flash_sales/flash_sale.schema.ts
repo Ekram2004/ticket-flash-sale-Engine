@@ -50,3 +50,33 @@ export const createFlashSaleSchema: FastifySchema = {
   },
 };
 
+
+export const listFlashSaleSchema: FastifySchema = {
+  response: {
+    200: {
+      type: "object",
+      required: ["success", "detail", "message"],
+      additionalProperties: true,
+      properties: {
+        success: { type: "boolean" },
+        message: { type: "string" },
+        detail: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["id", "event_id", "title", "start_time", "end_time"],
+            additionalProperties: true,
+            properties: {
+              id: { type: "string", format: "uuid" },
+              event_id: { type: "string", format: "uuid" },
+              title: { type: "string" },
+              start_time: { type: ["string", "object" ], format:"date-time"},
+              end_time: { type: ["string", "object"], format: "date-time" },
+              status: { type: ["string", "null"] },
+            },
+          },
+        },
+      },
+    },
+  },
+};

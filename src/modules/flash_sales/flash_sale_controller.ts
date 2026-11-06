@@ -1,7 +1,6 @@
 import { type FastifyRequest, type FastifyReply } from "fastify";
 import { FlashSaleService } from "./flash_sale_service.js";
 import { type FlashSaleInput } from "./flash_sale.schema.js";
-import { request } from "http";
 
 
 export class FlashSaleController{
@@ -25,5 +24,16 @@ export class FlashSaleController{
           flashSaleId,
           message: "Flash sale successfully created!",
         }); 
-    }
+  }
+  
+  fetchFlashSaleHandler = async (request: FastifyRequest, reply: FastifyReply) => {
+    const rawData = await this.flashSaleService.fetch();
+
+    const detail = Array.isArray(rawData) ? rawData : [];
+    return reply.status(200).send({
+      success: true,
+      message: "Flash sales successfully fetched!",
+      detail: detail,
+    })
+  }
 }
