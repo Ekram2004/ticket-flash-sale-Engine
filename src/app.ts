@@ -9,6 +9,8 @@ import fastifyCookie from '@fastify/cookie';
 import { UserRepositoryError } from './modules/auth/auth.repository.js';
 import { eventRoutes } from './modules/events/event.routes.js';
 import { flashSaleRoutes } from './modules/flash_sales/flash_sale_routes.js';
+import { ticketRoutes } from './modules/tickets/ticket.router.js';
+import { orderRoutes } from './modules/orders/order.routes.js';
 
 
 
@@ -55,7 +57,9 @@ export function buildApp() {
   app.register(eventRoutes, { prefix: "/api/v1/admin" });
   app.register(eventRoutes, { prefix: "/api/v1" });
   app.register(flashSaleRoutes, { prefix: "/api/v1/admin" });
-  app.register(flashSaleRoutes, {prefix:"/api/v1"})
+  app.register(flashSaleRoutes, { prefix: "/api/v1" });
+  app.register(ticketRoutes, { prefix: "/api/v1/admin" });
+  app.register(orderRoutes, { prefix: "/api/v1" });
 
     app.get('/health', async () => {
         return {
