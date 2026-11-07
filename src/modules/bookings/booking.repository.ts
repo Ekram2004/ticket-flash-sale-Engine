@@ -1,63 +1,117 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { db } from "../../db/pool.js";
 
 
-export class BookingRepository{
-    async createBookingWithAtomicStock(
-        flashSaleId: string,
-        ticketId: string,
-        userId: string,
-    ): Promise<string>{
-        const client = await db.connect();
-        let destroyClient = false
+export class BookingRepositoryError extends Error {
+  constructor(
+    public statusCode: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "BookingRepositoryError";
+  }
+}
 
-        try {
-            await client.query('BEGIN');
-
-            const stockResult = await client.query(
-              `
-            UPDATE flash_sales_tickets
-            SET available_quantity = available_quantity - 1
-            WHERE flash_sale_id = $1 AND ticket_id = $2 AND available_quantity > 0 AND EXISTS(SELECT 1 FROM flash_sales fs WHERE fs.id = $1 AND fs.status = 'active' AND NOW() >= fs.start_time AND NOW() < fs.end_time) RETURNING price_minor`,
-              [flashSaleId, ticketId],
-            );
+export interface bookingDbRow {
+  id: string;
+  order_id: string;
+  user_id: string;
+  flash_sale_id: string;
+  status: "CONFIRMED" | "CANCELLED" | "REFUNDED";
+  created_at: Date;
+}
 
 
-            if (stockResult.rowCount !== 1) {
-                throw new Error('INSUFFICIENT_STOCK');
-            }
 
-            const unitPrice = stockResult.rows[0].price_minor
-            const orderId = randomUUID()
+export class BookingRepository {
+  async settleTransaction(
+    bookingId: string,
+    issuedTicketId: string,
+    orderId: string,
+    userId: string,
+    flashSaleId: string,
+    ticketId: string,
+  ): Promise<string> {
+    const client = await db.connect();
+    let shouldDiscardClient = false;
 
-            await client.query(`INSERT INTO orders(id, user_id, flash_sale_id, status, expires_at) VALUES ($1, $2, $3, 'PENDING', NOW() + INTERVAL '10 minutes' );`, [orderId, userId, flashSaleId]);
-            
-            await client.query(
-              `INSERT INTO order_items(order_id,flash_sale_id,ticket_id, quantity, unit_price) VALUES ($1, $2, $3, 1, $4)`,[orderId, flashSaleId, ticketId, unitPrice]
-            );
+    try {
+      await client.query("BEGIN");
 
-            await client.query('COMMIT');
-            return orderId
-        } catch (error) {
-            try {
-                await client.query('ROLLBACK');
-            } catch (rollbackError) {
-                destroyClient = true;
-                console.error("Transaction rollback failed:", rollbackError);
-            }
-            throw error;
-        } finally {
-            if (destroyClient) {
-                        client.release(
-                          new Error(
-                            "Discard connection because rollback failed.",
-                          ),
-                        );
+      const orderUpdate = await client.query(
+        `UPDATE orders 
+         SET status = 'CONFIRMED' 
+         WHERE id = $1 AND status = 'PENDING' AND expires_at > NOW()
+         RETURNING id`,
+        [orderId],
+      );
 
-            }
-            else {
-                client.release();
-            }
-        }
+      if (orderUpdate.rowCount === 0) {
+        throw new BookingRepositoryError(
+          410,
+          "Fulfillment failed: The temporary reservation lock has expired or is already settled.",
+        );
+      }
+
+      await client.query(
+        `INSERT INTO bookings (id, order_id, user_id, flash_sale_id, status)
+         VALUES ($1, $2, $3, $4, 'CONFIRMED')`,
+        [bookingId, orderId, userId, flashSaleId],
+      );
+
+      const secureHashToken = randomBytes(32).toString("hex");
+
+      await client.query(
+        `INSERT INTO issued_tickets (id, booking_id, flash_sale_id, ticket_id, secure_hash_token)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [issuedTicketId, bookingId, flashSaleId, ticketId, secureHashToken],
+      );
+
+      await client.query("COMMIT");
+      return bookingId;
+    } catch (error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        shouldDiscardClient = true;
+        console.error("Transaction rollback failed:", rollbackError);
+      }
+      if (error instanceof BookingRepositoryError) {
+        throw error;
+      }
+      throw new BookingRepositoryError(
+        500,
+        "Internal database failure during booking fulfillment processing.",
+      );
+    } finally {
+      if (shouldDiscardClient) {
+        client.release(
+          new Error("Discard connection because rollback failed."),
+        );
+      } else {
+        client.release();
+      }
     }
+  }
+
+  async getBookingsByUser(userId: string): Promise<bookingDbRow[]> {
+    const client = await db.connect();
+    try {
+      const result = await client.query<bookingDbRow>(
+        `SELECT id, order_id, user_id, flash_sale_id, status, created_at 
+         FROM bookings 
+         WHERE user_id = $1 
+         ORDER BY created_at DESC`,
+        [userId],
+      );
+      return result.rows;
+    } catch (error) {
+      throw new BookingRepositoryError(
+        500,
+        "Failed to retrieve customer booking history from database.",
+      );
+    } finally {
+      client.release();
+    }
+  }
 }
