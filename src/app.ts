@@ -3,8 +3,6 @@ import { bookTicket } from './controllers/ticketController.js';
 import { bookingRoutes } from './modules/bookings/booking.routes.js';
 import { registerUserRoutes } from './modules/auth/auth.routes.js';
 import { loginUserRoutes } from './modules/auth/auth.routes.js';
-import cookie from '@fastify/cookie';
-import secureSession from "@fastify/secure-session";
 import fastifyCookie from '@fastify/cookie';
 import { UserRepositoryError } from './modules/auth/auth.repository.js';
 import { eventRoutes } from './modules/events/event.routes.js';
