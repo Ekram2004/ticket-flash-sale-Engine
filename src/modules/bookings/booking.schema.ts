@@ -6,11 +6,22 @@ export interface BookTicketInput {
   ticketId: string;
 }
 
+const errorResponseSchema = {
+  type: "object",
+  required: ["error", "message"],
+  additionalProperties: false,
+  properties: {
+    error: { type: "string" },
+    message: { type: "string" },
+  },
+};
+
+
 
 export const bookTicketSchema: FastifySchema = {
   body: {
     type: "object",
-    required: ["flashSaleId", "ticketId"],
+    required: ["flash_sale_id", "ticket_id"],
     additionalProperties: false,
     properties: {
       flashSaleId: { type: "string", format: "uuid" },
@@ -40,14 +51,9 @@ export const bookTicketSchema: FastifySchema = {
         message: { type: "string" },
       },
     },
-    400: {
-      type: "object",
-      required: ["error", "message"],
-      additionalProperties: false,
-      properties: {
-        error: { type: "string" },
-        message: { type: "string" },
-      },
-    },
+    400: errorResponseSchema,
+    401: errorResponseSchema,
+    409: errorResponseSchema, 
+    423: errorResponseSchema, 
   },
 };
