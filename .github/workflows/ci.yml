@@ -17,17 +17,15 @@ jobs:
       - name: Setup Node.js Runtime
         uses: actions/setup-node@v4
         with:
-          node-version: 22 # Locked to Node 22 LTS to eliminate Node 24 experimental punycode warnings
+          node-version: 22
 
-      # FIXED: Installs pnpm globally as an npm tool to completely bypass internal action-setup workspace checks
+      # FIXED: Clean manual install entirely separate from setup-node's internal cache scanner hook
       - name: Install pnpm Globally
         run: npm install -g pnpm@9
 
-      - name: Setup Native Node pnpm Cache
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: 'pnpm'
+      # FIXED: Force pnpm to completely ignore workspace layout structures for store locations
+      - name: Configure Explicit Store Location
+        run: pnpm config set store-dir ~/.pnpm-store --global
 
       - name: Install Project Dependencies
         run: pnpm install --frozen-lockfile
