@@ -1,13 +1,11 @@
 name: Continuous Integration
 
-
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
 
-  
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -21,25 +19,16 @@ jobs:
         with:
           node-version: 24
 
-      - name: Install pnpm Globally
+      # FIXED: Integrated pnpm native caching directly into the setup action
+      - name: Setup pnpm & Dependency Cache
         uses: pnpm/action-setup@v3
         with:
           version: 9
+          run_install: false
 
-      - name: Get pnpm Cache Directory Path
-        id: pnpm-cache
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+      - name: Set pnpm Store Path
+        run: pnpm config set store-dir ~/.pnpm-store
 
-      - name: Setup Dependency Cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-      
       - name: Install Project Dependencies
         run: pnpm install --frozen-lockfile
 
