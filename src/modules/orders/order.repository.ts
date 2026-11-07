@@ -1,15 +1,13 @@
 import { db } from "../../db/pool.js";
 
-
-
-export class OrderRepositoryError extends Error{
-    constructor(
-        public statusCode: number,
-        message: string,
-    ) {
-        super(message);
-        this.name = "OrderRepositoryError";
-    }
+export class OrderRepositoryError extends Error {
+  constructor(
+    public statusCode: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "OrderRepositoryError";
+  }
 }
 
 export interface orderDbRow {
@@ -35,41 +33,72 @@ export class OrderRepository {
     userId: string,
     flashSaleId: string,
     ticketId: string,
-    unitPriceMinor: number,
-    expires_at: Date,
+    _unitPriceMinor: number, // Retained to protect existing upstream signature calls
+    expiresAt: Date,
   ): Promise<string> {
     const client = await db.connect();
+    let shouldDiscardClient = false;
 
     try {
       await client.query("BEGIN");
 
-      await client.query(
-        `INSERT INTO orders(id, user_id,flash_sale_id, status,expires_at)VALUES($1, $2, $3,'PENDING', $4)`,
-        [orderId, userId, flashSaleId, expires_at],
-      );
-
-      await client.query(
-        `INSERT INTO order_items(order_id, flash_sale_id, ticket_id,quantity, unit_price) VALUES($1, $2, $3, 1, $4)`,
-        [orderId, flashSaleId, ticketId, unitPriceMinor],
-      );
-
-      const inventoryUpdate = await client.query(
-        `UPDATE flash_sales_tickets SET available_quantity = available_quantity - 1 WHERE flash_sale_id = $1 AND ticket_id = $2 AND available_quantity > 0`,
+      // 1. ATOMIC STEP: Verify window state constraints and decrement inventory count exactly ONCE
+      const stockResult = await client.query(
+        `UPDATE flash_sales_tickets
+         SET available_quantity = available_quantity - 1
+         WHERE flash_sale_id = $1 
+           AND ticket_id = $2 
+           AND available_quantity > 0 
+           AND EXISTS (
+             SELECT 1 FROM flash_sales fs 
+             WHERE fs.id = $1 
+               AND fs.status = 'active' 
+               AND NOW() >= fs.start_time 
+               AND NOW() < fs.end_time
+           ) 
+         RETURNING price_minor`,
         [flashSaleId, ticketId],
       );
-      if (inventoryUpdate.rowCount === 0) {
+
+      if (stockResult.rowCount !== 1) {
         throw new OrderRepositoryError(
           409,
-          "Ticket allocation is fully exhausted.",
+          "Ticket allocation is fully exhausted or the flash sale is inactive.",
         );
       }
+
+      // Extract the live active database price tier
+      const dynamicUnitPrice = stockResult.rows[0].price_minor;
+
+      // 2. Persist order reservation frame using the passed method parameters securely
+      await client.query(
+        `INSERT INTO orders (id, user_id, flash_sale_id, status, expires_at) 
+         VALUES ($1, $2, $3, 'PENDING', $4)`,
+        [orderId, userId, flashSaleId, expiresAt],
+      );
+
+      // 3. Write individual line item allocation metrics
+      await client.query(
+        `INSERT INTO order_items (order_id, flash_sale_id, ticket_id, quantity, unit_price) 
+         VALUES ($1, $2, $3, 1, $4)`,
+        [orderId, flashSaleId, ticketId, dynamicUnitPrice],
+      );
+
       await client.query("COMMIT");
       return orderId;
     } catch (error: any) {
-      await client.query("ROLLBACK");
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        shouldDiscardClient = true;
+        console.error("Critical transaction rollback failure:", rollbackError);
+      }
+
       if (error instanceof OrderRepositoryError) {
         throw error;
       }
+
+      // Handle raw database level constraint failures
       switch (error.code) {
         case this.FOREIGN_KEY_VIOLATION_CODE:
           throw new OrderRepositoryError(
@@ -104,7 +133,11 @@ export class OrderRepository {
         "Internal system database failure during checkout transaction processing.",
       );
     } finally {
-      client.release();
+      if (shouldDiscardClient) {
+        client.release(true); // Teardown and evict a corrupted client pool node instantly
+      } else {
+        client.release();
+      }
     }
   }
 
