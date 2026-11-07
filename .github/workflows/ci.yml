@@ -14,18 +14,20 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      # FIXED: Setup pnpm FIRST without installing, so setup-node can find it and cache it natively
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-          run_install: false
-
-      - name: Setup Node.js Runtime & Native pnpm Cache
+      - name: Setup Node.js Runtime
         uses: actions/setup-node@v4
         with:
-          node-version: 24
-          cache: 'pnpm' # Let setup-node handle the cache directories automatically
+          node-version: 22 # Locked to Node 22 LTS to eliminate Node 24 experimental punycode warnings
+
+      # FIXED: Installs pnpm globally as an npm tool to completely bypass internal action-setup workspace checks
+      - name: Install pnpm Globally
+        run: npm install -g pnpm@9
+
+      - name: Setup Native Node pnpm Cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
 
       - name: Install Project Dependencies
         run: pnpm install --frozen-lockfile
